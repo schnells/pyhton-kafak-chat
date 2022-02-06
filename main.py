@@ -5,16 +5,15 @@ from tkinter import *
 from tkinter import font
 from tkinter import ttk
 
-# import all functions /
-#  everything from chat.py file
-
 # GUI class for the chat
+from pykafka import KafkaClient
+
+client = KafkaClient(hosts="127.0.0.1:9092")
+topic = client.topics['chatroom1']
 
 class GUI:
     # constructor method
     def __init__(self):
-
-
 
         # chat window which is currently hidden
         self.Window = Tk()
@@ -178,35 +177,26 @@ class GUI:
     # function to receive messages
     def receive(self):
 
-        while True:
-            try:
-                message = None
+        consumer = topic.get_simple_consumer()
+        for message in consumer:
+            if message is not None:
+                print(message.value)
+                self.textCons.config(state=NORMAL)
+                self.textCons.insert(END,
+                                     message.partition_key.decode("utf-8") + ": " +
+                                     message.value.decode("utf-8") + "\n\n")
 
-                # if the messages from the server is NAME send the client's name
-                if message == 'NAME':
-                    #client.send(self.name.encode(FORMAT))
-                    print("")
-                else:
-                    # insert messages to text box
-                    self.textCons.config(state=NORMAL)
-                    self.textCons.insert(END,
-                                         message + "\n\n")
-
-                    self.textCons.config(state=DISABLED)
-                    self.textCons.see(END)
-            except:
-                # an error will be printed on the command line or console if there's an error
-                print("An error occured!")
-
-                break
+                self.textCons.config(state=DISABLED)
+                self.textCons.see(END)
 
     # function to send messages
     def sendMessage(self):
         while True:
             message = (f"{self.name}: {self.msg}")
-            #client.send(message.encode(FORMAT))
 
             print(message)
+            with topic.get_producer(delivery_reports=True) as producer:
+                producer.produce(bytes(self.msg, encoding='utf8'), partition_key=bytes(self.name, encoding='utf8'))
 
             break
 
