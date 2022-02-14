@@ -1,14 +1,26 @@
-from pykafka import KafkaClient
-from pykafka.common import OffsetType
+from confluent_kafka import Consumer
+import socket
 
-client = KafkaClient(hosts="127.0.0.1:9092")
+conf = {'bootstrap.servers': 'localhost:9092',
+        'group.id': socket.gethostname(),
+        'enable.auto.commit': False,
+        'auto.offset.reset': 'earliest'}
 
-topic = client.topics['chatroom1']
+consumer = Consumer(conf)
 
-consumer = topic.get_simple_consumer(consumer_group="mychat",
-    auto_offset_reset=OffsetType.EARLIEST,
-    reset_offset_on_start=False)
-for message in consumer:
-    if message is not None:
-        print(message.value)
+
+consumer.subscribe(["chatroom1"])
+while True:
+    msg = consumer.poll(1.0)
+
+    if msg is None:
+        continue
+    if msg.error():
+        print("Consumer error: {}".format(msg.error()))
+        continue
+
+    print('Received message: {}'.format(msg.key().decode('utf-8') + ":" + msg.value().decode('utf-8')))
+
+consumer.close()
+
 
